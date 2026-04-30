@@ -2,6 +2,16 @@ import { existsSync, readFileSync } from "node:fs";
 
 loadDotEnv();
 
+export const env = {
+  betterAuthSecret: process.env.BETTER_AUTH_SECRET ?? "dev_better_auth_secret_change_me",
+  betterAuthUrl: process.env.BETTER_AUTH_URL ?? "http://localhost:3001",
+  databaseUrl: requireEnv("DATABASE_URL"),
+  port: Number(process.env.PORT ?? 3001),
+  reqlensAutoCreateDevProject: process.env.REQLENS_AUTO_CREATE_DEV_PROJECT !== "false",
+  reqlensDevApiKey: process.env.REQLENS_DEV_API_KEY,
+  webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000"
+};
+
 function loadDotEnv(path = ".env"): void {
   if (!existsSync(path)) {
     return;
@@ -27,4 +37,14 @@ function loadDotEnv(path = ".env"): void {
 
     process.env[key] ??= value;
   }
+}
+
+function requireEnv(key: string): string {
+  const value = process.env[key];
+
+  if (!value) {
+    throw new Error(`${key} is required.`);
+  }
+
+  return value;
 }

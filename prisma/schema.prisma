@@ -72,6 +72,7 @@ model Project {
   id          String       @id @default(cuid())
   userId      String       @map("user_id")
   name        String
+  description String?
   createdAt   DateTime     @default(now()) @map("created_at")
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   apiKeys     ApiKey[]
@@ -82,13 +83,14 @@ model Project {
 }
 
 model ApiKey {
-  id        String   @id @default(cuid())
-  projectId String   @map("project_id")
-  keyHash   String   @unique @map("key_hash")
-  createdAt DateTime @default(now()) @map("created_at")
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  projectId    String   @map("project_id")
+  keyHash      String   @unique @map("key_hash")
+  encryptedKey String?  @map("encrypted_key")
+  createdAt    DateTime @default(now()) @map("created_at")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@index([projectId])
+  @@unique([projectId])
   @@map("api_keys")
 }
 
