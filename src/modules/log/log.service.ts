@@ -1,6 +1,21 @@
 import { prisma } from "../../config/index.js";
 
-export async function listLogsByProject(userId: string) {
+type ListLogsByProjectOptions = {
+  errorsOnly?: boolean;
+};
+
+export async function listLogsByProject(
+  userId: string,
+  options: ListLogsByProjectOptions = {}
+) {
+  const logWhere = options.errorsOnly
+    ? {
+        statusCode: {
+          gte: 400
+        }
+      }
+    : undefined;
+
   const projects = await prisma.project.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -9,6 +24,7 @@ export async function listLogsByProject(userId: string) {
       name: true,
       keyHash: true,
       requestLogs: {
+        where: logWhere,
         orderBy: { createdAt: "desc" },
         take: 100,
         select: {
