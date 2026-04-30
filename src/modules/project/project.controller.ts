@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { sendSuccess } from "../../utils/response.js";
 import {
   createProject,
+  deleteProject,
   getProjectApiKey,
   listProjects,
   regenerateProjectApiKey
@@ -35,4 +36,9 @@ export async function regenerateProjectApiKeyController(
     req.params.projectId
   );
   sendSuccess(res, { apiKey });
+}
+
+export async function deleteProjectController(req: Request, res: Response): Promise<void> {
+  await deleteProject(req.authSession!.user.id, req.params.projectId);
+  sendSuccess(res, { deleted: true });
 }

@@ -106,6 +106,22 @@ export async function regenerateProjectApiKey(
   return apiKey;
 }
 
+export async function deleteProject(userId: string, projectId: string): Promise<void> {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: { id: true }
+  });
+
+  if (!project) {
+    throw new ApiError(404, "Project not found.");
+  }
+
+  await prisma.$transaction([
+    prisma.requestLog.deleteMany({ where: { projectId: project.id } }),
+    prisma.project.delete({ where: { id: project.id } })
+  ]);
+}
+
 export async function getProjectIdForApiKey(apiKey: string): Promise<string | null> {
   const keyHash = hashApiKey(apiKey);
   const existingProject = await prisma.project.findUnique({

@@ -69,29 +69,18 @@ model Verification {
 }
 
 model Project {
-  id          String       @id @default(cuid())
-  userId      String       @map("user_id")
-  name        String
-  description String?
-  createdAt   DateTime     @default(now()) @map("created_at")
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKeys     ApiKey[]
-  requestLogs RequestLog[]
+  id           String       @id @default(cuid())
+  userId       String       @map("user_id")
+  name         String
+  description  String?
+  keyHash      String?      @unique @map("key_hash")
+  encryptedKey String?      @map("encrypted_key")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestLogs  RequestLog[]
 
   @@index([userId])
   @@map("projects")
-}
-
-model ApiKey {
-  id           String   @id @default(cuid())
-  projectId    String   @map("project_id")
-  keyHash      String   @unique @map("key_hash")
-  encryptedKey String?  @map("encrypted_key")
-  createdAt    DateTime @default(now()) @map("created_at")
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId])
-  @@map("api_keys")
 }
 
 model RequestLog {

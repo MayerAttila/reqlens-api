@@ -4,6 +4,7 @@ import { validateBody } from "../../middlewares/validate.middleware.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import {
   createProjectController,
+  deleteProjectController,
   getProjectApiKeyController,
   listProjectsController,
   regenerateProjectApiKeyController
@@ -20,3 +21,4 @@ projectRouter.post(
   "/:projectId/api-key/regenerate",
   catchAsync(regenerateProjectApiKeyController)
 );
+projectRouter.delete("/:projectId", catchAsync(deleteProjectController));
