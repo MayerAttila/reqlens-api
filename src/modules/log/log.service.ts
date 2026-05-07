@@ -1,4 +1,5 @@
 import { prisma } from "../../config/index.js";
+import { getAccessibleProjectWhere } from "../project/project.service.js";
 
 type ListLogsByProjectOptions = {
   errorsOnly?: boolean;
@@ -17,7 +18,7 @@ export async function listLogsByProject(
     : undefined;
 
   const projects = await prisma.project.findMany({
-    where: { userId },
+    where: getAccessibleProjectWhere(userId),
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

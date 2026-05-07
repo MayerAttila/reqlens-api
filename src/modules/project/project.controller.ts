@@ -1,13 +1,19 @@
 import { Request, Response } from "express";
 import { sendSuccess } from "../../utils/response.js";
 import {
+  acceptProjectInvite,
   createProject,
+  createProjectInvite,
   deleteProject,
   getProjectApiKey,
   listProjects,
   regenerateProjectApiKey
 } from "./project.service.js";
-import { CreateProjectInput } from "./project.validation.js";
+import {
+  AcceptProjectInviteInput,
+  CreateProjectInput,
+  CreateProjectInviteInput
+} from "./project.validation.js";
 
 export async function listProjectsController(req: Request, res: Response): Promise<void> {
   const projects = await listProjects(req.authSession!.user.id);
@@ -41,4 +47,27 @@ export async function regenerateProjectApiKeyController(
 export async function deleteProjectController(req: Request, res: Response): Promise<void> {
   await deleteProject(req.authSession!.user.id, req.params.projectId);
   sendSuccess(res, { deleted: true });
+}
+
+export async function createProjectInviteController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const result = await createProjectInvite(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.body as CreateProjectInviteInput
+  );
+  sendSuccess(res, result, 201);
+}
+
+export async function acceptProjectInviteController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const result = await acceptProjectInvite(
+    req.authSession!.user.id,
+    req.body as AcceptProjectInviteInput
+  );
+  sendSuccess(res, result);
 }

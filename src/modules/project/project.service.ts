@@ -1,4 +1,6 @@
+import { createHash, randomBytes } from "node:crypto";
 import { env, prisma } from "../../config/index.js";
+import { renderProjectInviteEmail } from "../../emails/render-auth-email.js";
 import {
   createApiKey,
   decryptApiKey,
@@ -6,18 +8,47 @@ import {
   hashApiKey
 } from "../../utils/api-key.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { CreateProjectInput } from "./project.validation.js";
+import { sendEmail } from "../../utils/email.js";
+import {
+  AcceptProjectInviteInput,
+  CreateProjectInput,
+  CreateProjectInviteInput
+} from "./project.validation.js";
+
+const inviteExpiryMs = 7 * 24 * 60 * 60 * 1000;
 
 export async function listProjects(userId: string) {
   const projects = await prisma.project.findMany({
-    where: { userId },
+    where: getAccessibleProjectWhere(userId),
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      userId: true,
       name: true,
       description: true,
       keyHash: true,
-      createdAt: true
+      createdAt: true,
+      members: {
+        select: {
+          user: {
+            select: {
+              email: true,
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      invites: {
+        where: { status: "pending" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          email: true,
+          expiresAt: true,
+          createdAt: true
+        }
+      }
     }
   });
 
@@ -26,7 +57,10 @@ export async function listProjects(userId: string) {
     name: project.name,
     description: project.description,
     createdAt: project.createdAt,
-    hasApiKey: Boolean(project.keyHash)
+    accessRole: project.userId === userId ? "owner" : "member",
+    hasApiKey: Boolean(project.keyHash),
+    invites: project.userId === userId ? project.invites : [],
+    members: project.members.map((member) => member.user)
   }));
 }
 
@@ -56,7 +90,10 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       name: project.name,
       description: project.description,
       createdAt: project.createdAt,
-      hasApiKey: Boolean(project.keyHash)
+      accessRole: "owner",
+      hasApiKey: Boolean(project.keyHash),
+      invites: [],
+      members: []
     }
   };
 }
@@ -122,6 +159,163 @@ export async function deleteProject(userId: string, projectId: string): Promise<
   ]);
 }
 
+export async function createProjectInvite(
+  userId: string,
+  projectId: string,
+  input: CreateProjectInviteInput
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: {
+      id: true,
+      name: true,
+      user: {
+        select: {
+          email: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  if (!project) {
+    throw new ApiError(404, "Project not found.");
+  }
+
+  if (project.user.email.toLowerCase() === input.email) {
+    throw new ApiError(400, "Project owner is already on this project.");
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true }
+  });
+
+  if (existingUser) {
+    const existingMember = await prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId: existingUser.id
+        }
+      },
+      select: { id: true }
+    });
+
+    if (existingMember) {
+      throw new ApiError(400, "User is already a project member.");
+    }
+  }
+
+  await prisma.projectInvite.updateMany({
+    where: {
+      projectId,
+      email: input.email,
+      status: "pending"
+    },
+    data: { status: "revoked" }
+  });
+
+  const token = randomBytes(32).toString("hex");
+  const invite = await prisma.projectInvite.create({
+    data: {
+      projectId,
+      email: input.email,
+      tokenHash: hashInviteToken(token),
+      expiresAt: new Date(Date.now() + inviteExpiryMs)
+    },
+    select: {
+      id: true,
+      email: true,
+      expiresAt: true,
+      createdAt: true
+    }
+  });
+
+  const inviteUrl = `${env.webOrigin}/accept-invite?token=${token}`;
+  const email = await renderProjectInviteEmail({
+    inviterName: project.user.name,
+    projectName: project.name,
+    url: inviteUrl
+  });
+
+  await sendEmail({
+    html: email.html,
+    subject: `Invite to ${project.name} on Reqlens`,
+    text: email.text,
+    to: input.email
+  });
+
+  return { invite };
+}
+
+export async function acceptProjectInvite(userId: string, input: AcceptProjectInviteInput) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true }
+  });
+
+  if (!user) {
+    throw new ApiError(401, "Unauthorized.");
+  }
+
+  const invite = await prisma.projectInvite.findUnique({
+    where: { tokenHash: hashInviteToken(input.token) },
+    select: {
+      id: true,
+      email: true,
+      expiresAt: true,
+      projectId: true,
+      status: true,
+      project: {
+        select: {
+          name: true,
+          userId: true
+        }
+      }
+    }
+  });
+
+  if (!invite || invite.status !== "pending" || invite.expiresAt < new Date()) {
+    throw new ApiError(400, "Invite is invalid or expired.");
+  }
+
+  if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+    throw new ApiError(403, "This invite belongs to another email address.");
+  }
+
+  if (invite.project.userId === userId) {
+    await prisma.projectInvite.update({
+      where: { id: invite.id },
+      data: { acceptedAt: new Date(), status: "accepted" }
+    });
+
+    return { projectId: invite.projectId, projectName: invite.project.name };
+  }
+
+  await prisma.$transaction([
+    prisma.projectMember.upsert({
+      where: {
+        projectId_userId: {
+          projectId: invite.projectId,
+          userId
+        }
+      },
+      update: {},
+      create: {
+        projectId: invite.projectId,
+        userId
+      }
+    }),
+    prisma.projectInvite.update({
+      where: { id: invite.id },
+      data: { acceptedAt: new Date(), status: "accepted" }
+    })
+  ]);
+
+  return { projectId: invite.projectId, projectName: invite.project.name };
+}
+
 export async function getProjectIdForApiKey(apiKey: string): Promise<string | null> {
   const keyHash = hashApiKey(apiKey);
   const existingProject = await prisma.project.findUnique({
@@ -166,4 +360,21 @@ export async function getProjectIdForApiKey(apiKey: string): Promise<string | nu
   });
 
   return project.id;
+}
+
+export function getAccessibleProjectWhere(userId: string) {
+  return {
+    OR: [
+      { userId },
+      {
+        members: {
+          some: { userId }
+        }
+      }
+    ]
+  };
+}
+
+function hashInviteToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
