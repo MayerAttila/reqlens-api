@@ -7,12 +7,16 @@ import {
   deleteProject,
   getProjectApiKey,
   listProjects,
-  regenerateProjectApiKey
+  regenerateProjectApiKey,
+  removeProjectMember,
+  revokeProjectInvite,
+  updateProject
 } from "./project.service.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
-  CreateProjectInviteInput
+  CreateProjectInviteInput,
+  UpdateProjectInput
 } from "./project.validation.js";
 
 export async function listProjectsController(req: Request, res: Response): Promise<void> {
@@ -23,6 +27,15 @@ export async function listProjectsController(req: Request, res: Response): Promi
 export async function createProjectController(req: Request, res: Response): Promise<void> {
   const result = await createProject(req.authSession!.user.id, req.body as CreateProjectInput);
   sendSuccess(res, result, 201);
+}
+
+export async function updateProjectController(req: Request, res: Response): Promise<void> {
+  const result = await updateProject(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.body as UpdateProjectInput
+  );
+  sendSuccess(res, result);
 }
 
 export async function getProjectApiKeyController(
@@ -70,4 +83,28 @@ export async function acceptProjectInviteController(
     req.body as AcceptProjectInviteInput
   );
   sendSuccess(res, result);
+}
+
+export async function removeProjectMemberController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  await removeProjectMember(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.params.memberUserId
+  );
+  sendSuccess(res, { removed: true });
+}
+
+export async function revokeProjectInviteController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  await revokeProjectInvite(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.params.inviteId
+  );
+  sendSuccess(res, { revoked: true });
 }

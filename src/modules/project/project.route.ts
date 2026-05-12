@@ -9,12 +9,16 @@ import {
   deleteProjectController,
   getProjectApiKeyController,
   listProjectsController,
-  regenerateProjectApiKeyController
+  regenerateProjectApiKeyController,
+  removeProjectMemberController,
+  revokeProjectInviteController,
+  updateProjectController
 } from "./project.controller.js";
 import {
   acceptProjectInviteSchema,
   createProjectInviteSchema,
-  createProjectSchema
+  createProjectSchema,
+  updateProjectSchema
 } from "./project.validation.js";
 
 export const projectRouter = Router();
@@ -22,6 +26,11 @@ export const projectRouter = Router();
 projectRouter.use(authMiddleware);
 projectRouter.get("/", catchAsync(listProjectsController));
 projectRouter.post("/", validateBody(createProjectSchema), catchAsync(createProjectController));
+projectRouter.patch(
+  "/:projectId",
+  validateBody(updateProjectSchema),
+  catchAsync(updateProjectController)
+);
 projectRouter.post(
   "/invites/accept",
   validateBody(acceptProjectInviteSchema),
@@ -31,6 +40,14 @@ projectRouter.post(
   "/:projectId/invites",
   validateBody(createProjectInviteSchema),
   catchAsync(createProjectInviteController)
+);
+projectRouter.delete(
+  "/:projectId/invites/:inviteId",
+  catchAsync(revokeProjectInviteController)
+);
+projectRouter.delete(
+  "/:projectId/members/:memberUserId",
+  catchAsync(removeProjectMemberController)
 );
 projectRouter.get("/:projectId/api-key", catchAsync(getProjectApiKeyController));
 projectRouter.post(

@@ -12,7 +12,8 @@ import { sendEmail } from "../../utils/email.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
-  CreateProjectInviteInput
+  CreateProjectInviteInput,
+  UpdateProjectInput
 } from "./project.validation.js";
 
 const inviteExpiryMs = 7 * 24 * 60 * 60 * 1000;
@@ -94,6 +95,47 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       hasApiKey: Boolean(project.keyHash),
       invites: [],
       members: []
+    }
+  };
+}
+
+export async function updateProject(
+  userId: string,
+  projectId: string,
+  input: UpdateProjectInput
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: { id: true }
+  });
+
+  if (!project) {
+    throw new ApiError(404, "Project not found.");
+  }
+
+  const updatedProject = await prisma.project.update({
+    where: { id: project.id },
+    data: {
+      description: input.description || null,
+      name: input.name
+    },
+    select: {
+      createdAt: true,
+      description: true,
+      id: true,
+      keyHash: true,
+      name: true
+    }
+  });
+
+  return {
+    project: {
+      id: updatedProject.id,
+      name: updatedProject.name,
+      description: updatedProject.description,
+      createdAt: updatedProject.createdAt,
+      accessRole: "owner",
+      hasApiKey: Boolean(updatedProject.keyHash)
     }
   };
 }
@@ -314,6 +356,60 @@ export async function acceptProjectInvite(userId: string, input: AcceptProjectIn
   ]);
 
   return { projectId: invite.projectId, projectName: invite.project.name };
+}
+
+export async function removeProjectMember(
+  userId: string,
+  projectId: string,
+  memberUserId: string
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: { id: true }
+  });
+
+  if (!project) {
+    throw new ApiError(404, "Project not found.");
+  }
+
+  const result = await prisma.projectMember.deleteMany({
+    where: {
+      projectId,
+      userId: memberUserId
+    }
+  });
+
+  if (result.count === 0) {
+    throw new ApiError(404, "Project member not found.");
+  }
+}
+
+export async function revokeProjectInvite(
+  userId: string,
+  projectId: string,
+  inviteId: string
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
+    select: { id: true }
+  });
+
+  if (!project) {
+    throw new ApiError(404, "Project not found.");
+  }
+
+  const result = await prisma.projectInvite.updateMany({
+    where: {
+      id: inviteId,
+      projectId,
+      status: "pending"
+    },
+    data: { status: "revoked" }
+  });
+
+  if (result.count === 0) {
+    throw new ApiError(404, "Pending invite not found.");
+  }
 }
 
 export async function getProjectIdForApiKey(apiKey: string): Promise<string | null> {
