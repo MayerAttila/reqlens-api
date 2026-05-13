@@ -13,10 +13,14 @@ import {
   AcceptProjectInviteInput,
   CreateProjectInput,
   CreateProjectInviteInput,
+  ProjectMemberRole,
+  UpdateProjectMemberRoleInput,
   UpdateProjectInput
 } from "./project.validation.js";
 
 const inviteExpiryMs = 7 * 24 * 60 * 60 * 1000;
+const writeRoles = ["owner", "admin"] as const;
+const apiKeyReadRoles = ["owner", "admin", "developer"] as const;
 
 export async function listProjects(userId: string) {
   const projects = await prisma.project.findMany({
@@ -31,6 +35,7 @@ export async function listProjects(userId: string) {
       createdAt: true,
       members: {
         select: {
+          role: true,
           user: {
             select: {
               email: true,
@@ -58,10 +63,24 @@ export async function listProjects(userId: string) {
     name: project.name,
     description: project.description,
     createdAt: project.createdAt,
-    accessRole: project.userId === userId ? "owner" : "member",
+    accessRole:
+      project.userId === userId
+        ? "owner"
+        : normalizeProjectRole(
+            project.members.find((member) => member.user.id === userId)?.role
+          ),
     hasApiKey: Boolean(project.keyHash),
-    invites: project.userId === userId ? project.invites : [],
-    members: project.members.map((member) => member.user)
+    invites:
+      project.userId === userId ||
+      normalizeProjectRole(
+        project.members.find((member) => member.user.id === userId)?.role
+      ) === "admin"
+        ? project.invites
+        : [],
+    members: project.members.map((member) => ({
+      ...member.user,
+      role: normalizeProjectRole(member.role)
+    }))
   }));
 }
 
@@ -104,14 +123,7 @@ export async function updateProject(
   projectId: string,
   input: UpdateProjectInput
 ) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true }
-  });
-
-  if (!project) {
-    throw new ApiError(404, "Project not found.");
-  }
+  const project = await requireProjectRole(userId, projectId, writeRoles);
 
   const updatedProject = await prisma.project.update({
     where: { id: project.id },
@@ -141,14 +153,10 @@ export async function updateProject(
 }
 
 export async function getProjectApiKey(userId: string, projectId: string): Promise<string> {
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      userId,
-      encryptedKey: {
-        not: null
-      }
-    },
+  await requireProjectRole(userId, projectId, apiKeyReadRoles);
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
     select: { encryptedKey: true }
   });
 
@@ -163,14 +171,7 @@ export async function regenerateProjectApiKey(
   userId: string,
   projectId: string
 ): Promise<string> {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true }
-  });
-
-  if (!project) {
-    throw new ApiError(404, "Project not found.");
-  }
+  const project = await requireProjectRole(userId, projectId, writeRoles);
 
   const apiKey = createApiKey();
 
@@ -186,14 +187,7 @@ export async function regenerateProjectApiKey(
 }
 
 export async function deleteProject(userId: string, projectId: string): Promise<void> {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true }
-  });
-
-  if (!project) {
-    throw new ApiError(404, "Project not found.");
-  }
+  const project = await requireProjectRole(userId, projectId, writeRoles);
 
   await prisma.$transaction([
     prisma.requestLog.deleteMany({ where: { projectId: project.id } }),
@@ -206,8 +200,10 @@ export async function createProjectInvite(
   projectId: string,
   input: CreateProjectInviteInput
 ) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
+  await requireProjectRole(userId, projectId, writeRoles);
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
     select: {
       id: true,
       name: true,
@@ -346,6 +342,7 @@ export async function acceptProjectInvite(userId: string, input: AcceptProjectIn
       update: {},
       create: {
         projectId: invite.projectId,
+        role: "viewer",
         userId
       }
     }),
@@ -363,14 +360,7 @@ export async function removeProjectMember(
   projectId: string,
   memberUserId: string
 ) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true }
-  });
-
-  if (!project) {
-    throw new ApiError(404, "Project not found.");
-  }
+  await requireProjectRole(userId, projectId, writeRoles);
 
   const result = await prisma.projectMember.deleteMany({
     where: {
@@ -389,14 +379,7 @@ export async function revokeProjectInvite(
   projectId: string,
   inviteId: string
 ) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, userId },
-    select: { id: true }
-  });
-
-  if (!project) {
-    throw new ApiError(404, "Project not found.");
-  }
+  await requireProjectRole(userId, projectId, writeRoles);
 
   const result = await prisma.projectInvite.updateMany({
     where: {
@@ -410,6 +393,29 @@ export async function revokeProjectInvite(
   if (result.count === 0) {
     throw new ApiError(404, "Pending invite not found.");
   }
+}
+
+export async function updateProjectMemberRole(
+  userId: string,
+  projectId: string,
+  memberUserId: string,
+  input: UpdateProjectMemberRoleInput
+) {
+  await requireProjectRole(userId, projectId, writeRoles);
+
+  const member = await prisma.projectMember.updateMany({
+    where: {
+      projectId,
+      userId: memberUserId
+    },
+    data: { role: input.role }
+  });
+
+  if (member.count === 0) {
+    throw new ApiError(404, "Project member not found.");
+  }
+
+  return { role: input.role };
 }
 
 export async function getProjectIdForApiKey(apiKey: string): Promise<string | null> {
@@ -469,6 +475,57 @@ export function getAccessibleProjectWhere(userId: string) {
       }
     ]
   };
+}
+
+async function requireProjectRole(
+  userId: string,
+  projectId: string,
+  allowedRoles: readonly ProjectAccessRole[]
+) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      ...getAccessibleProjectWhere(userId)
+    },
+    select: {
+      id: true,
+      userId: true,
+      members: {
+        where: { userId },
+        select: { role: true }
+      }
+    }
+  });
+
+  if (!project || project.id !== projectId) {
+    const directProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true }
+    });
+
+    throw new ApiError(directProject ? 403 : 404, "Project not found.");
+  }
+
+  const accessRole: ProjectAccessRole =
+    project.userId === userId
+      ? "owner"
+      : normalizeProjectRole(project.members[0]?.role);
+
+  if (!allowedRoles.includes(accessRole)) {
+    throw new ApiError(403, "You do not have permission for this project.");
+  }
+
+  return { id: project.id, role: accessRole };
+}
+
+type ProjectAccessRole = "admin" | "developer" | "owner" | "viewer";
+
+function normalizeProjectRole(role: string | null | undefined): ProjectMemberRole {
+  if (role === "admin" || role === "developer" || role === "viewer") {
+    return role;
+  }
+
+  return "viewer";
 }
 
 function hashInviteToken(token: string) {

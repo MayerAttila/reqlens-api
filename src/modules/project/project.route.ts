@@ -12,12 +12,14 @@ import {
   regenerateProjectApiKeyController,
   removeProjectMemberController,
   revokeProjectInviteController,
-  updateProjectController
+  updateProjectController,
+  updateProjectMemberRoleController
 } from "./project.controller.js";
 import {
   acceptProjectInviteSchema,
   createProjectInviteSchema,
   createProjectSchema,
+  updateProjectMemberRoleSchema,
   updateProjectSchema
 } from "./project.validation.js";
 
@@ -48,6 +50,11 @@ projectRouter.delete(
 projectRouter.delete(
   "/:projectId/members/:memberUserId",
   catchAsync(removeProjectMemberController)
+);
+projectRouter.patch(
+  "/:projectId/members/:memberUserId",
+  validateBody(updateProjectMemberRoleSchema),
+  catchAsync(updateProjectMemberRoleController)
 );
 projectRouter.get("/:projectId/api-key", catchAsync(getProjectApiKeyController));
 projectRouter.post(

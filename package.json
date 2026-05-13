@@ -5,7 +5,7 @@
   "description": "Reqlens ingest API and dashboard backend.",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "prisma generate",

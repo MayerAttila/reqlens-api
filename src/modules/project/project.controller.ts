@@ -10,12 +10,14 @@ import {
   regenerateProjectApiKey,
   removeProjectMember,
   revokeProjectInvite,
-  updateProject
+  updateProject,
+  updateProjectMemberRole
 } from "./project.service.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
   CreateProjectInviteInput,
+  UpdateProjectMemberRoleInput,
   UpdateProjectInput
 } from "./project.validation.js";
 
@@ -95,6 +97,19 @@ export async function removeProjectMemberController(
     req.params.memberUserId
   );
   sendSuccess(res, { removed: true });
+}
+
+export async function updateProjectMemberRoleController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const result = await updateProjectMemberRole(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.params.memberUserId,
+    req.body as UpdateProjectMemberRoleInput
+  );
+  sendSuccess(res, result);
 }
 
 export async function revokeProjectInviteController(
