@@ -91,6 +91,8 @@ model ProjectSetting {
   id                      String   @id @default(cuid())
   projectId               String   @unique @map("project_id")
   latencyErrorThresholdMs Int      @default(750) @map("latency_error_threshold_ms")
+  latencyEmailEnabled     Boolean  @default(false) @map("latency_email_enabled")
+  latencyEmailRecipient   String?  @map("latency_email_recipient")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
   project                 Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)

@@ -21,6 +21,8 @@ export const updateProjectMemberRoleSchema = z.object({
 });
 
 export const updateProjectSettingsSchema = z.object({
+  latencyEmailEnabled: z.boolean(),
+  latencyEmailRecipient: z.email().trim().toLowerCase().nullable().optional(),
   latencyErrorThresholdMs: z.number().int().min(1).max(60000)
 });
 

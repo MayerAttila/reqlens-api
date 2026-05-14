@@ -26,6 +26,8 @@ export async function listLogsByProject(
       keyHash: true,
       settings: {
         select: {
+          latencyEmailEnabled: true,
+          latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
         }
       },
@@ -51,6 +53,8 @@ export async function listLogsByProject(
     projectName: project.name,
     hasApiKey: Boolean(project.keyHash),
     settings: {
+      latencyEmailEnabled: project.settings?.latencyEmailEnabled ?? false,
+      latencyEmailRecipient: project.settings?.latencyEmailRecipient ?? null,
       latencyErrorThresholdMs: project.settings?.latencyErrorThresholdMs ?? 750
     },
     logs: project.requestLogs

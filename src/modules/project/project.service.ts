@@ -59,6 +59,8 @@ export async function listProjects(userId: string) {
       },
       settings: {
         select: {
+          latencyEmailEnabled: true,
+          latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
         }
       }
@@ -114,6 +116,8 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       keyHash: true,
       settings: {
         select: {
+          latencyEmailEnabled: true,
+          latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
         }
       },
@@ -157,6 +161,8 @@ export async function updateProject(
       keyHash: true,
       settings: {
         select: {
+          latencyEmailEnabled: true,
+          latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
         }
       },
@@ -186,13 +192,19 @@ export async function updateProjectSettings(
   const settings = await prisma.projectSetting.upsert({
     where: { projectId: project.id },
     update: {
+      latencyEmailEnabled: input.latencyEmailEnabled,
+      latencyEmailRecipient: input.latencyEmailRecipient || null,
       latencyErrorThresholdMs: input.latencyErrorThresholdMs
     },
     create: {
       projectId: project.id,
+      latencyEmailEnabled: input.latencyEmailEnabled,
+      latencyEmailRecipient: input.latencyEmailRecipient || null,
       latencyErrorThresholdMs: input.latencyErrorThresholdMs
     },
     select: {
+      latencyEmailEnabled: true,
+      latencyEmailRecipient: true,
       latencyErrorThresholdMs: true
     }
   });
@@ -577,9 +589,18 @@ function normalizeProjectRole(role: string | null | undefined): ProjectMemberRol
 }
 
 function normalizeProjectSettings(
-  settings: { latencyErrorThresholdMs: number } | null | undefined
+  settings:
+    | {
+        latencyEmailEnabled?: boolean;
+        latencyEmailRecipient?: string | null;
+        latencyErrorThresholdMs: number;
+      }
+    | null
+    | undefined
 ) {
   return {
+    latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
+    latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
