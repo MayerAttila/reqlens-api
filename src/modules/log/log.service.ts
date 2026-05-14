@@ -24,6 +24,11 @@ export async function listLogsByProject(
       id: true,
       name: true,
       keyHash: true,
+      settings: {
+        select: {
+          latencyErrorThresholdMs: true
+        }
+      },
       requestLogs: {
         where: logWhere,
         orderBy: { createdAt: "desc" },
@@ -45,6 +50,9 @@ export async function listLogsByProject(
     projectId: project.id,
     projectName: project.name,
     hasApiKey: Boolean(project.keyHash),
+    settings: {
+      latencyErrorThresholdMs: project.settings?.latencyErrorThresholdMs ?? 750
+    },
     logs: project.requestLogs
   }));
 }

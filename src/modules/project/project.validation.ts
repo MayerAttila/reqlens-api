@@ -20,6 +20,10 @@ export const updateProjectMemberRoleSchema = z.object({
   role: projectMemberRoleSchema
 });
 
+export const updateProjectSettingsSchema = z.object({
+  latencyErrorThresholdMs: z.number().int().min(1).max(60000)
+});
+
 export const acceptProjectInviteSchema = z.object({
   token: z.string().trim().min(24)
 });
@@ -32,3 +36,6 @@ export type UpdateProjectMemberRoleInput = z.infer<
   typeof updateProjectMemberRoleSchema
 >;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+export type UpdateProjectSettingsInput = z.infer<
+  typeof updateProjectSettingsSchema
+>;

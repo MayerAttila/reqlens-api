@@ -15,10 +15,12 @@ import {
   CreateProjectInviteInput,
   ProjectMemberRole,
   UpdateProjectMemberRoleInput,
-  UpdateProjectInput
+  UpdateProjectInput,
+  UpdateProjectSettingsInput
 } from "./project.validation.js";
 
 const inviteExpiryMs = 7 * 24 * 60 * 60 * 1000;
+const defaultLatencyErrorThresholdMs = 750;
 const writeRoles = ["owner", "admin"] as const;
 const apiKeyReadRoles = ["owner", "admin", "developer"] as const;
 
@@ -54,6 +56,11 @@ export async function listProjects(userId: string) {
           expiresAt: true,
           createdAt: true
         }
+      },
+      settings: {
+        select: {
+          latencyErrorThresholdMs: true
+        }
       }
     }
   });
@@ -70,6 +77,7 @@ export async function listProjects(userId: string) {
             project.members.find((member) => member.user.id === userId)?.role
           ),
     hasApiKey: Boolean(project.keyHash),
+    settings: normalizeProjectSettings(project.settings),
     invites:
       project.userId === userId ||
       normalizeProjectRole(
@@ -92,13 +100,23 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       description: input.description || null,
       name: input.name,
       keyHash: hashApiKey(apiKey),
-      encryptedKey: encryptApiKey(apiKey)
+      encryptedKey: encryptApiKey(apiKey),
+      settings: {
+        create: {
+          latencyErrorThresholdMs: defaultLatencyErrorThresholdMs
+        }
+      }
     },
     select: {
       id: true,
       name: true,
       description: true,
       keyHash: true,
+      settings: {
+        select: {
+          latencyErrorThresholdMs: true
+        }
+      },
       createdAt: true
     }
   });
@@ -112,6 +130,7 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       createdAt: project.createdAt,
       accessRole: "owner",
       hasApiKey: Boolean(project.keyHash),
+      settings: normalizeProjectSettings(project.settings),
       invites: [],
       members: []
     }
@@ -136,6 +155,11 @@ export async function updateProject(
       description: true,
       id: true,
       keyHash: true,
+      settings: {
+        select: {
+          latencyErrorThresholdMs: true
+        }
+      },
       name: true
     }
   });
@@ -147,9 +171,33 @@ export async function updateProject(
       description: updatedProject.description,
       createdAt: updatedProject.createdAt,
       accessRole: "owner",
-      hasApiKey: Boolean(updatedProject.keyHash)
+      hasApiKey: Boolean(updatedProject.keyHash),
+      settings: normalizeProjectSettings(updatedProject.settings)
     }
   };
+}
+
+export async function updateProjectSettings(
+  userId: string,
+  projectId: string,
+  input: UpdateProjectSettingsInput
+) {
+  const project = await requireProjectRole(userId, projectId, writeRoles);
+  const settings = await prisma.projectSetting.upsert({
+    where: { projectId: project.id },
+    update: {
+      latencyErrorThresholdMs: input.latencyErrorThresholdMs
+    },
+    create: {
+      projectId: project.id,
+      latencyErrorThresholdMs: input.latencyErrorThresholdMs
+    },
+    select: {
+      latencyErrorThresholdMs: true
+    }
+  });
+
+  return { settings: normalizeProjectSettings(settings) };
 }
 
 export async function getProjectApiKey(userId: string, projectId: string): Promise<string> {
@@ -526,6 +574,15 @@ function normalizeProjectRole(role: string | null | undefined): ProjectMemberRol
   }
 
   return "viewer";
+}
+
+function normalizeProjectSettings(
+  settings: { latencyErrorThresholdMs: number } | null | undefined
+) {
+  return {
+    latencyErrorThresholdMs:
+      settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
+  };
 }
 
 function hashInviteToken(token: string) {

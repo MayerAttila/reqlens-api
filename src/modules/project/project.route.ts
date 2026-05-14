@@ -13,14 +13,16 @@ import {
   removeProjectMemberController,
   revokeProjectInviteController,
   updateProjectController,
-  updateProjectMemberRoleController
+  updateProjectMemberRoleController,
+  updateProjectSettingsController
 } from "./project.controller.js";
 import {
   acceptProjectInviteSchema,
   createProjectInviteSchema,
   createProjectSchema,
   updateProjectMemberRoleSchema,
-  updateProjectSchema
+  updateProjectSchema,
+  updateProjectSettingsSchema
 } from "./project.validation.js";
 
 export const projectRouter = Router();
@@ -32,6 +34,11 @@ projectRouter.patch(
   "/:projectId",
   validateBody(updateProjectSchema),
   catchAsync(updateProjectController)
+);
+projectRouter.patch(
+  "/:projectId/settings",
+  validateBody(updateProjectSettingsSchema),
+  catchAsync(updateProjectSettingsController)
 );
 projectRouter.post(
   "/invites/accept",

@@ -11,14 +11,16 @@ import {
   removeProjectMember,
   revokeProjectInvite,
   updateProject,
-  updateProjectMemberRole
+  updateProjectMemberRole,
+  updateProjectSettings
 } from "./project.service.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
   CreateProjectInviteInput,
   UpdateProjectMemberRoleInput,
-  UpdateProjectInput
+  UpdateProjectInput,
+  UpdateProjectSettingsInput
 } from "./project.validation.js";
 
 export async function listProjectsController(req: Request, res: Response): Promise<void> {
@@ -36,6 +38,18 @@ export async function updateProjectController(req: Request, res: Response): Prom
     req.authSession!.user.id,
     req.params.projectId,
     req.body as UpdateProjectInput
+  );
+  sendSuccess(res, result);
+}
+
+export async function updateProjectSettingsController(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const result = await updateProjectSettings(
+    req.authSession!.user.id,
+    req.params.projectId,
+    req.body as UpdateProjectSettingsInput
   );
   sendSuccess(res, result);
 }
