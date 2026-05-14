@@ -35,6 +35,13 @@ export async function listProjects(userId: string) {
       description: true,
       keyHash: true,
       createdAt: true,
+      user: {
+        select: {
+          email: true,
+          id: true,
+          name: true
+        }
+      },
       members: {
         select: {
           role: true,
@@ -59,6 +66,12 @@ export async function listProjects(userId: string) {
       },
       settings: {
         select: {
+          errorEmailAudience: true,
+          errorEmailCustomUserIds: true,
+          errorEmailEnabled: true,
+          errorEmailRecipient: true,
+          latencyEmailAudience: true,
+          latencyEmailCustomUserIds: true,
           latencyEmailEnabled: true,
           latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
@@ -79,6 +92,7 @@ export async function listProjects(userId: string) {
             project.members.find((member) => member.user.id === userId)?.role
           ),
     hasApiKey: Boolean(project.keyHash),
+    owner: project.user,
     settings: normalizeProjectSettings(project.settings),
     invites:
       project.userId === userId ||
@@ -116,6 +130,12 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       keyHash: true,
       settings: {
         select: {
+          errorEmailAudience: true,
+          errorEmailCustomUserIds: true,
+          errorEmailEnabled: true,
+          errorEmailRecipient: true,
+          latencyEmailAudience: true,
+          latencyEmailCustomUserIds: true,
           latencyEmailEnabled: true,
           latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
@@ -134,6 +154,7 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       createdAt: project.createdAt,
       accessRole: "owner",
       hasApiKey: Boolean(project.keyHash),
+      owner: null,
       settings: normalizeProjectSettings(project.settings),
       invites: [],
       members: []
@@ -161,6 +182,12 @@ export async function updateProject(
       keyHash: true,
       settings: {
         select: {
+          errorEmailAudience: true,
+          errorEmailCustomUserIds: true,
+          errorEmailEnabled: true,
+          errorEmailRecipient: true,
+          latencyEmailAudience: true,
+          latencyEmailCustomUserIds: true,
           latencyEmailEnabled: true,
           latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
@@ -192,17 +219,35 @@ export async function updateProjectSettings(
   const settings = await prisma.projectSetting.upsert({
     where: { projectId: project.id },
     update: {
+      errorEmailAudience: input.errorEmailAudience,
+      errorEmailCustomUserIds: input.errorEmailCustomUserIds,
+      errorEmailEnabled: input.errorEmailEnabled,
+      errorEmailRecipient: input.errorEmailRecipient || null,
+      latencyEmailAudience: input.latencyEmailAudience,
+      latencyEmailCustomUserIds: input.latencyEmailCustomUserIds,
       latencyEmailEnabled: input.latencyEmailEnabled,
       latencyEmailRecipient: input.latencyEmailRecipient || null,
       latencyErrorThresholdMs: input.latencyErrorThresholdMs
     },
     create: {
       projectId: project.id,
+      errorEmailAudience: input.errorEmailAudience,
+      errorEmailCustomUserIds: input.errorEmailCustomUserIds,
+      errorEmailEnabled: input.errorEmailEnabled,
+      errorEmailRecipient: input.errorEmailRecipient || null,
+      latencyEmailAudience: input.latencyEmailAudience,
+      latencyEmailCustomUserIds: input.latencyEmailCustomUserIds,
       latencyEmailEnabled: input.latencyEmailEnabled,
       latencyEmailRecipient: input.latencyEmailRecipient || null,
       latencyErrorThresholdMs: input.latencyErrorThresholdMs
     },
     select: {
+      errorEmailAudience: true,
+      errorEmailCustomUserIds: true,
+      errorEmailEnabled: true,
+      errorEmailRecipient: true,
+      latencyEmailAudience: true,
+      latencyEmailCustomUserIds: true,
       latencyEmailEnabled: true,
       latencyEmailRecipient: true,
       latencyErrorThresholdMs: true
@@ -591,6 +636,12 @@ function normalizeProjectRole(role: string | null | undefined): ProjectMemberRol
 function normalizeProjectSettings(
   settings:
     | {
+        errorEmailAudience?: string;
+        errorEmailCustomUserIds?: string[];
+        errorEmailEnabled?: boolean;
+        errorEmailRecipient?: string | null;
+        latencyEmailAudience?: string;
+        latencyEmailCustomUserIds?: string[];
         latencyEmailEnabled?: boolean;
         latencyEmailRecipient?: string | null;
         latencyErrorThresholdMs: number;
@@ -599,11 +650,30 @@ function normalizeProjectSettings(
     | undefined
 ) {
   return {
+    errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
+    errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorEmailEnabled: settings?.errorEmailEnabled ?? false,
+    errorEmailRecipient: settings?.errorEmailRecipient ?? null,
+    latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),
+    latencyEmailCustomUserIds: settings?.latencyEmailCustomUserIds ?? [],
     latencyEmailEnabled: settings?.latencyEmailEnabled ?? false,
     latencyEmailRecipient: settings?.latencyEmailRecipient ?? null,
     latencyErrorThresholdMs:
       settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
   };
+}
+
+function normalizeEmailAlertAudience(audience: string | null | undefined) {
+  if (
+    audience === "all" ||
+    audience === "admin_and_above" ||
+    audience === "developer_and_above" ||
+    audience === "custom"
+  ) {
+    return audience;
+  }
+
+  return "admin_and_above";
 }
 
 function hashInviteToken(token: string) {

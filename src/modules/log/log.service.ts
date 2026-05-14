@@ -26,6 +26,12 @@ export async function listLogsByProject(
       keyHash: true,
       settings: {
         select: {
+          errorEmailAudience: true,
+          errorEmailCustomUserIds: true,
+          errorEmailEnabled: true,
+          errorEmailRecipient: true,
+          latencyEmailAudience: true,
+          latencyEmailCustomUserIds: true,
           latencyEmailEnabled: true,
           latencyEmailRecipient: true,
           latencyErrorThresholdMs: true
@@ -53,6 +59,14 @@ export async function listLogsByProject(
     projectName: project.name,
     hasApiKey: Boolean(project.keyHash),
     settings: {
+      errorEmailAudience: project.settings?.errorEmailAudience ?? "admin_and_above",
+      errorEmailCustomUserIds: project.settings?.errorEmailCustomUserIds ?? [],
+      errorEmailEnabled: project.settings?.errorEmailEnabled ?? false,
+      errorEmailRecipient: project.settings?.errorEmailRecipient ?? null,
+      latencyEmailAudience:
+        project.settings?.latencyEmailAudience ?? "admin_and_above",
+      latencyEmailCustomUserIds:
+        project.settings?.latencyEmailCustomUserIds ?? [],
       latencyEmailEnabled: project.settings?.latencyEmailEnabled ?? false,
       latencyEmailRecipient: project.settings?.latencyEmailRecipient ?? null,
       latencyErrorThresholdMs: project.settings?.latencyErrorThresholdMs ?? 750
