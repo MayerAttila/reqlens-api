@@ -9,6 +9,7 @@ import {
 } from "../../utils/api-key.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from "../../utils/email.js";
+import { publishProjectSdkConfig } from "../sdk/sdk-config-publisher.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
@@ -251,6 +252,12 @@ export async function updateProjectSettings(
       latencyEmailEnabled: true,
       latencyEmailRecipient: true,
       latencyErrorThresholdMs: true
+    }
+  });
+
+  publishProjectSdkConfig(project.id, {
+    capture: {
+      slowRequestThresholdMs: settings.latencyErrorThresholdMs
     }
   });
 
@@ -567,6 +574,40 @@ export async function getProjectIdForApiKey(apiKey: string): Promise<string | nu
   });
 
   return project.id;
+}
+
+export async function getProjectSdkConfig(apiKey: string | undefined) {
+  if (!apiKey) {
+    throw new ApiError(401, "Invalid API key.");
+  }
+
+  const projectId = await getProjectIdForApiKey(apiKey);
+
+  if (!projectId) {
+    throw new ApiError(401, "Invalid API key.");
+  }
+
+  return getProjectSdkConfigByProjectId(projectId);
+}
+
+export async function getProjectSdkConfigByProjectId(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      settings: {
+        select: {
+          latencyErrorThresholdMs: true
+        }
+      }
+    }
+  });
+
+  return {
+    capture: {
+      slowRequestThresholdMs:
+        project?.settings?.latencyErrorThresholdMs ?? defaultLatencyErrorThresholdMs
+    }
+  };
 }
 
 export function getAccessibleProjectWhere(userId: string) {
