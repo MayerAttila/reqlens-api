@@ -9,6 +9,8 @@ export type ProjectLogsResponse = {
     statusCode: number;
     durationMs: number;
     errorMessage: string | null;
+    requestBody: unknown;
+    responseBody: unknown;
     createdAt: Date;
   }>;
 };

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const payloadSnapshotSchema = z.unknown();
+
 export const ingestSchema = z.object({
   logs: z
     .array(
@@ -8,6 +10,8 @@ export const ingestSchema = z.object({
         path: z.string().min(1),
         statusCode: z.number().int().min(100).max(599),
         durationMs: z.number().int().min(0),
+        requestBody: payloadSnapshotSchema.optional(),
+        responseBody: payloadSnapshotSchema.optional(),
         timestamp: z.string().datetime()
       })
     )

@@ -143,6 +143,8 @@ model RequestLog {
   statusCode   Int      @map("status_code")
   durationMs   Int      @map("duration_ms")
   errorMessage String?  @map("error_message")
+  requestBody  Json?    @map("request_body")
+  responseBody Json?    @map("response_body")
   createdAt    DateTime @default(now()) @map("created_at")
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

@@ -48,6 +48,8 @@ export async function listLogsByProject(
           statusCode: true,
           durationMs: true,
           errorMessage: true,
+          requestBody: true,
+          responseBody: true,
           createdAt: true
         }
       }

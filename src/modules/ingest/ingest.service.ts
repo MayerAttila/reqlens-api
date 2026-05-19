@@ -1,3 +1,4 @@
+import { Prisma } from "../../../node_modules/.prisma/client/index.js";
 import { prisma } from "../../config/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from "../../utils/email.js";
@@ -22,6 +23,8 @@ export async function ingestLogs(apiKey: string | undefined, input: IngestInput)
       path: log.path,
       statusCode: log.statusCode,
       durationMs: log.durationMs,
+      requestBody: toPrismaJson(log.requestBody),
+      responseBody: toPrismaJson(log.responseBody),
       createdAt: new Date(log.timestamp)
     }))
   });
@@ -272,4 +275,16 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function toPrismaJson(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return Prisma.JsonNull;
+  }
+
+  return value as Prisma.InputJsonValue;
 }
