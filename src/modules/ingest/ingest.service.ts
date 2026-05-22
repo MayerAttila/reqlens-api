@@ -1,7 +1,9 @@
 import { Prisma } from "../../../node_modules/.prisma/client/index.js";
-import { prisma } from "../../config/index.js";
+import { env, prisma } from "../../config/index.js";
+import { renderOneTimeAlertEmail } from "../../emails/render-one-time-alert-email.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from "../../utils/email.js";
+import { getAlertRecipients } from "../alerts/alert-recipients.js";
 import { getProjectIdForApiKey } from "../project/project.service.js";
 import { IngestInput } from "./ingest.validation.js";
 
@@ -100,33 +102,20 @@ async function sendLatencyAlertEmail(projectId: string, input: IngestInput) {
   if (recipients.length === 0) {
     return;
   }
-  const sample = slowLogs
-    .slice(0, 5)
-    .map(
-      (log) =>
-        `${log.method} ${log.path} - ${log.durationMs} ms - status ${log.statusCode}`
-    )
-    .join("\n");
-  const text = [
-    `${slowLogs.length} latency alert(s) were detected for ${project.name}.`,
-    `Threshold: ${thresholdMs} ms.`,
-    "",
-    sample
-  ].join("\n");
-  const htmlItems = slowLogs
-    .slice(0, 5)
-    .map(
-      (log) =>
-        `<li><strong>${escapeHtml(log.method)} ${escapeHtml(log.path)}</strong> - ${log.durationMs} ms - status ${log.statusCode}</li>`
-    )
-    .join("");
+  const email = await renderOneTimeAlertEmail({
+    calls: slowLogs.slice(0, 5).map(toAlertEmailCall),
+    dashboardUrl: getDashboardAlertUrl(projectId, "latency"),
+    kind: "latency",
+    projectName: project.name,
+    totalCount: slowLogs.length
+  });
 
   await Promise.all(
     recipients.map((to) =>
       sendEmail({
-        html: `<p>${slowLogs.length} latency alert(s) were detected for <strong>${escapeHtml(project.name)}</strong>.</p><p>Threshold: ${thresholdMs} ms.</p><ul>${htmlItems}</ul>`,
+        html: email.html,
         subject: `Latency alert for ${project.name}`,
-        text,
+        text: email.text,
         to
       })
     )
@@ -187,94 +176,43 @@ async function sendErrorAlertEmail(projectId: string, input: IngestInput) {
   if (recipients.length === 0) {
     return;
   }
-  const sample = erroredLogs
-    .slice(0, 5)
-    .map(
-      (log) =>
-        `${log.method} ${log.path} - status ${log.statusCode} - ${log.durationMs} ms`
-    )
-    .join("\n");
-  const text = [
-    `${erroredLogs.length} errored API call(s) were detected for ${project.name}.`,
-    "",
-    sample
-  ].join("\n");
-  const htmlItems = erroredLogs
-    .slice(0, 5)
-    .map(
-      (log) =>
-        `<li><strong>${escapeHtml(log.method)} ${escapeHtml(log.path)}</strong> - status ${log.statusCode} - ${log.durationMs} ms</li>`
-    )
-    .join("");
+  const email = await renderOneTimeAlertEmail({
+    calls: erroredLogs.slice(0, 5).map(toAlertEmailCall),
+    dashboardUrl: getDashboardAlertUrl(projectId, "errors"),
+    kind: "errors",
+    projectName: project.name,
+    totalCount: erroredLogs.length
+  });
 
   await Promise.all(
     recipients.map((to) =>
       sendEmail({
-        html: `<p>${erroredLogs.length} errored API call(s) were detected for <strong>${escapeHtml(project.name)}</strong>.</p><ul>${htmlItems}</ul>`,
+        html: email.html,
         subject: `API error alert for ${project.name}`,
-        text,
+        text: email.text,
         to
       })
     )
   );
 }
 
-function getAlertRecipients({
-  audience,
-  customUserIds,
-  fallbackEmail,
-  members,
-  owner
-}: {
-  audience: string;
-  customUserIds: string[];
-  fallbackEmail: string | null;
-  members: Array<{ role: string; user: { email: string; id: string } }>;
-  owner: { email: string; id: string };
-}) {
-  const users = [
-    { email: owner.email, id: owner.id, role: "owner" },
-    ...members.map((member) => ({
-      email: member.user.email,
-      id: member.user.id,
-      role: member.role
-    }))
-  ];
+function getDashboardAlertUrl(projectId: string, type: "errors" | "latency") {
+  const params = new URLSearchParams({
+    projectId,
+    type
+  });
 
-  const recipients =
-    audience === "all"
-      ? users.map((user) => user.email)
-      : audience === "custom"
-        ? users
-            .filter((user) => customUserIds.includes(user.id))
-            .map((user) => user.email)
-        : audience === "developer_and_above"
-          ? users
-              .filter(
-                (user) =>
-                  user.role === "owner" ||
-                  user.role === "admin" ||
-                  user.role === "developer"
-              )
-              .map((user) => user.email)
-        : users
-            .filter((user) => user.role === "owner" || user.role === "admin")
-            .map((user) => user.email);
-
-  if (recipients.length === 0 && fallbackEmail) {
-    recipients.push(fallbackEmail);
-  }
-
-  return Array.from(new Set(recipients));
+  return `${env.webOrigin}/dashboard/errors?${params.toString()}`;
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function toAlertEmailCall(log: IngestInput["logs"][number]) {
+  return {
+    durationMs: log.durationMs,
+    method: log.method,
+    path: log.path,
+    statusCode: log.statusCode,
+    timestamp: log.timestamp
+  };
 }
 
 function toPrismaJson(value: unknown) {

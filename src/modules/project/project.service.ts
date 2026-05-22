@@ -69,6 +69,11 @@ export async function listProjects(userId: string) {
         select: {
           errorEmailAudience: true,
           errorEmailCustomUserIds: true,
+          errorDigestEmailEnabled: true,
+          errorDigestEmailAudience: true,
+          errorDigestEmailCustomUserIds: true,
+          errorDigestEmailTime: true,
+          errorDigestEmailTimezone: true,
           errorEmailEnabled: true,
           errorEmailRecipient: true,
           latencyEmailAudience: true,
@@ -133,6 +138,11 @@ export async function createProject(userId: string, input: CreateProjectInput) {
         select: {
           errorEmailAudience: true,
           errorEmailCustomUserIds: true,
+          errorDigestEmailEnabled: true,
+          errorDigestEmailAudience: true,
+          errorDigestEmailCustomUserIds: true,
+          errorDigestEmailTime: true,
+          errorDigestEmailTimezone: true,
           errorEmailEnabled: true,
           errorEmailRecipient: true,
           latencyEmailAudience: true,
@@ -185,6 +195,11 @@ export async function updateProject(
         select: {
           errorEmailAudience: true,
           errorEmailCustomUserIds: true,
+          errorDigestEmailEnabled: true,
+          errorDigestEmailAudience: true,
+          errorDigestEmailCustomUserIds: true,
+          errorDigestEmailTime: true,
+          errorDigestEmailTimezone: true,
           errorEmailEnabled: true,
           errorEmailRecipient: true,
           latencyEmailAudience: true,
@@ -222,6 +237,11 @@ export async function updateProjectSettings(
     update: {
       errorEmailAudience: input.errorEmailAudience,
       errorEmailCustomUserIds: input.errorEmailCustomUserIds,
+      errorDigestEmailEnabled: input.errorDigestEmailEnabled,
+      errorDigestEmailAudience: input.errorDigestEmailAudience,
+      errorDigestEmailCustomUserIds: input.errorDigestEmailCustomUserIds,
+      errorDigestEmailTime: input.errorDigestEmailTime,
+      errorDigestEmailTimezone: input.errorDigestEmailTimezone,
       errorEmailEnabled: input.errorEmailEnabled,
       errorEmailRecipient: input.errorEmailRecipient || null,
       latencyEmailAudience: input.latencyEmailAudience,
@@ -234,6 +254,11 @@ export async function updateProjectSettings(
       projectId: project.id,
       errorEmailAudience: input.errorEmailAudience,
       errorEmailCustomUserIds: input.errorEmailCustomUserIds,
+      errorDigestEmailEnabled: input.errorDigestEmailEnabled,
+      errorDigestEmailAudience: input.errorDigestEmailAudience,
+      errorDigestEmailCustomUserIds: input.errorDigestEmailCustomUserIds,
+      errorDigestEmailTime: input.errorDigestEmailTime,
+      errorDigestEmailTimezone: input.errorDigestEmailTimezone,
       errorEmailEnabled: input.errorEmailEnabled,
       errorEmailRecipient: input.errorEmailRecipient || null,
       latencyEmailAudience: input.latencyEmailAudience,
@@ -245,6 +270,11 @@ export async function updateProjectSettings(
     select: {
       errorEmailAudience: true,
       errorEmailCustomUserIds: true,
+      errorDigestEmailEnabled: true,
+      errorDigestEmailAudience: true,
+      errorDigestEmailCustomUserIds: true,
+      errorDigestEmailTime: true,
+      errorDigestEmailTimezone: true,
       errorEmailEnabled: true,
       errorEmailRecipient: true,
       latencyEmailAudience: true,
@@ -679,6 +709,11 @@ function normalizeProjectSettings(
     | {
         errorEmailAudience?: string;
         errorEmailCustomUserIds?: string[];
+        errorDigestEmailEnabled?: boolean;
+        errorDigestEmailAudience?: string;
+        errorDigestEmailCustomUserIds?: string[];
+        errorDigestEmailTime?: string;
+        errorDigestEmailTimezone?: string;
         errorEmailEnabled?: boolean;
         errorEmailRecipient?: string | null;
         latencyEmailAudience?: string;
@@ -693,6 +728,13 @@ function normalizeProjectSettings(
   return {
     errorEmailAudience: normalizeEmailAlertAudience(settings?.errorEmailAudience),
     errorEmailCustomUserIds: settings?.errorEmailCustomUserIds ?? [],
+    errorDigestEmailEnabled: settings?.errorDigestEmailEnabled ?? false,
+    errorDigestEmailAudience: normalizeEmailAlertAudience(
+      settings?.errorDigestEmailAudience
+    ),
+    errorDigestEmailCustomUserIds: settings?.errorDigestEmailCustomUserIds ?? [],
+    errorDigestEmailTime: settings?.errorDigestEmailTime ?? "08:00",
+    errorDigestEmailTimezone: settings?.errorDigestEmailTimezone ?? "UTC",
     errorEmailEnabled: settings?.errorEmailEnabled ?? false,
     errorEmailRecipient: settings?.errorEmailRecipient ?? null,
     latencyEmailAudience: normalizeEmailAlertAudience(settings?.latencyEmailAudience),

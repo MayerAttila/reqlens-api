@@ -28,6 +28,11 @@ export async function listLogsByProject(
         select: {
           errorEmailAudience: true,
           errorEmailCustomUserIds: true,
+          errorDigestEmailEnabled: true,
+          errorDigestEmailAudience: true,
+          errorDigestEmailCustomUserIds: true,
+          errorDigestEmailTime: true,
+          errorDigestEmailTimezone: true,
           errorEmailEnabled: true,
           errorEmailRecipient: true,
           latencyEmailAudience: true,
@@ -63,6 +68,13 @@ export async function listLogsByProject(
     settings: {
       errorEmailAudience: project.settings?.errorEmailAudience ?? "admin_and_above",
       errorEmailCustomUserIds: project.settings?.errorEmailCustomUserIds ?? [],
+      errorDigestEmailEnabled: project.settings?.errorDigestEmailEnabled ?? false,
+      errorDigestEmailAudience:
+        project.settings?.errorDigestEmailAudience ?? "admin_and_above",
+      errorDigestEmailCustomUserIds:
+        project.settings?.errorDigestEmailCustomUserIds ?? [],
+      errorDigestEmailTime: project.settings?.errorDigestEmailTime ?? "08:00",
+      errorDigestEmailTimezone: project.settings?.errorDigestEmailTimezone ?? "UTC",
       errorEmailEnabled: project.settings?.errorEmailEnabled ?? false,
       errorEmailRecipient: project.settings?.errorEmailRecipient ?? null,
       latencyEmailAudience:

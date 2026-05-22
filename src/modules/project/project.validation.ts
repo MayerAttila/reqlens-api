@@ -7,6 +7,12 @@ export const emailAlertAudienceSchema = z.enum([
   "developer_and_above",
   "custom"
 ]);
+const digestTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Digest time must use HH:mm.");
+const timezoneSchema = z.string().trim().min(1).refine(isValidTimezone, {
+  message: "Digest timezone is invalid."
+});
 
 export const createProjectSchema = z.object({
   description: z.string().trim().max(240).optional(),
@@ -27,6 +33,11 @@ export const updateProjectMemberRoleSchema = z.object({
 });
 
 export const updateProjectSettingsSchema = z.object({
+  errorDigestEmailEnabled: z.boolean().default(false),
+  errorDigestEmailAudience: emailAlertAudienceSchema.default("admin_and_above"),
+  errorDigestEmailCustomUserIds: z.array(z.string().trim().min(1)).default([]),
+  errorDigestEmailTime: digestTimeSchema.default("08:00"),
+  errorDigestEmailTimezone: timezoneSchema.default("UTC"),
   errorEmailAudience: emailAlertAudienceSchema,
   errorEmailCustomUserIds: z.array(z.string().trim().min(1)),
   errorEmailEnabled: z.boolean(),
@@ -37,6 +48,15 @@ export const updateProjectSettingsSchema = z.object({
   latencyEmailRecipient: z.email().trim().toLowerCase().nullable().optional(),
   latencyErrorThresholdMs: z.number().int().min(1).max(60000)
 });
+
+function isValidTimezone(value: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export const acceptProjectInviteSchema = z.object({
   token: z.string().trim().min(24)
