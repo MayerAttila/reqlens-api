@@ -155,5 +155,7 @@ model RequestLog {
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
+  @@index([projectId, statusCode, createdAt(sort: Desc)], map: "request_logs_project_status_created_idx")
+  @@index([projectId, durationMs, createdAt(sort: Desc)], map: "request_logs_project_duration_created_idx")
   @@map("request_logs")
 }
