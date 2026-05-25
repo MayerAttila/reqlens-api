@@ -8,7 +8,8 @@ import {
 
 export async function listLogsController(req: Request, res: Response): Promise<void> {
   const projects = await listLogsByProject(req.authSession!.user.id, {
-    errorsOnly: req.query.level === "errors"
+    errorsOnly: req.query.level === "errors",
+    since: dateQuery(req.query.since)
   });
   sendSuccess(res, { projects });
 }
@@ -45,6 +46,16 @@ function numberQuery(value: unknown) {
   const parsed = typeof value === "string" ? Number(value) : NaN;
 
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function dateQuery(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 function problemTypeQuery(value: unknown) {

@@ -5,6 +5,7 @@ import { getAccessibleProjectWhere } from "../project/project.service.js";
 
 type ListLogsByProjectOptions = {
   errorsOnly?: boolean;
+  since?: Date;
 };
 
 type ProblemTypeFilter = "all" | "errors" | "latency";
@@ -34,13 +35,16 @@ export async function listLogsByProject(
   userId: string,
   options: ListLogsByProjectOptions = {}
 ) {
-  const logWhere = options.errorsOnly
-    ? {
-        statusCode: {
-          gte: 400
+  const logWhere = {
+    ...(options.errorsOnly
+      ? {
+          statusCode: {
+            gte: 400
+          }
         }
-      }
-    : undefined;
+      : {}),
+    ...(options.since ? { createdAt: { gte: options.since } } : {})
+  };
 
   const projects = await prisma.project.findMany({
     where: getAccessibleProjectWhere(userId),
@@ -68,7 +72,7 @@ export async function listLogsByProject(
         }
       },
       requestLogs: {
-        where: logWhere,
+        where: Object.keys(logWhere).length ? logWhere : undefined,
         orderBy: { createdAt: "desc" },
         take: 100,
         select: {
