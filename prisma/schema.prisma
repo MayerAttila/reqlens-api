@@ -19,9 +19,27 @@ model User {
   accounts      Account[]
   projects      Project[]
   projectMembers ProjectMember[]
+  settings      AccountSetting?
 
   @@unique([email])
   @@map("user")
+}
+
+model AccountSetting {
+  id                              String   @id @default(cuid())
+  userId                          String   @unique @map("user_id")
+  defaultLatencyErrorThresholdMs  Int      @default(750) @map("default_latency_error_threshold_ms")
+  defaultLatencyEmailAudience     String   @default("admin_and_above") @map("default_latency_email_audience")
+  defaultErrorEmailAudience       String   @default("admin_and_above") @map("default_error_email_audience")
+  defaultErrorDigestEmailAudience String   @default("admin_and_above") @map("default_error_digest_email_audience")
+  defaultErrorDigestEmailTime     String   @default("08:00") @map("default_error_digest_email_time")
+  defaultErrorDigestEmailTimezone String   @default("UTC") @map("default_error_digest_email_timezone")
+  defaultInviteRole               String   @default("viewer") @map("default_invite_role")
+  createdAt                       DateTime @default(now()) @map("created_at")
+  updatedAt                       DateTime @updatedAt @map("updated_at")
+  user                            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_settings")
 }
 
 model Session {
@@ -131,6 +149,7 @@ model ProjectInvite {
   projectId String   @map("project_id")
   email     String
   tokenHash String   @unique @map("token_hash")
+  role      String   @default("viewer")
   status    String   @default("pending")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { env, prisma } from "../../config/index.js";
+import { defaultLatencyErrorThresholdMs } from "../../constants/latency.js";
 import { renderProjectInviteEmail } from "../../emails/render-auth-email.js";
 import {
   createApiKey,
@@ -10,6 +11,7 @@ import {
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from "../../utils/email.js";
 import { publishProjectSdkConfig } from "../sdk/sdk-config-publisher.js";
+import { getProjectDefaults } from "../settings/settings.service.js";
 import {
   AcceptProjectInviteInput,
   CreateProjectInput,
@@ -21,7 +23,6 @@ import {
 } from "./project.validation.js";
 
 const inviteExpiryMs = 7 * 24 * 60 * 60 * 1000;
-const defaultLatencyErrorThresholdMs = 750;
 const writeRoles = ["owner", "admin"] as const;
 const apiKeyReadRoles = ["owner", "admin", "developer"] as const;
 
@@ -116,6 +117,7 @@ export async function listProjects(userId: string) {
 
 export async function createProject(userId: string, input: CreateProjectInput) {
   const apiKey = createApiKey();
+  const defaults = await getProjectDefaults(userId);
   const project = await prisma.project.create({
     data: {
       userId,
@@ -125,7 +127,12 @@ export async function createProject(userId: string, input: CreateProjectInput) {
       encryptedKey: encryptApiKey(apiKey),
       settings: {
         create: {
-          latencyErrorThresholdMs: defaultLatencyErrorThresholdMs
+          errorDigestEmailAudience: defaults.defaultErrorDigestEmailAudience,
+          errorDigestEmailTime: defaults.defaultErrorDigestEmailTime,
+          errorDigestEmailTimezone: defaults.defaultErrorDigestEmailTimezone,
+          errorEmailAudience: defaults.defaultErrorEmailAudience,
+          latencyEmailAudience: defaults.defaultLatencyEmailAudience,
+          latencyErrorThresholdMs: defaults.defaultLatencyErrorThresholdMs
         }
       }
     },
@@ -343,6 +350,7 @@ export async function createProjectInvite(
   input: CreateProjectInviteInput
 ) {
   await requireProjectRole(userId, projectId, writeRoles);
+  const defaults = await getProjectDefaults(userId);
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -401,6 +409,7 @@ export async function createProjectInvite(
     data: {
       projectId,
       email: input.email,
+      role: defaults.defaultInviteRole,
       tokenHash: hashInviteToken(token),
       expiresAt: new Date(Date.now() + inviteExpiryMs)
     },
@@ -446,6 +455,7 @@ export async function acceptProjectInvite(userId: string, input: AcceptProjectIn
       email: true,
       expiresAt: true,
       projectId: true,
+      role: true,
       status: true,
       project: {
         select: {
@@ -484,7 +494,7 @@ export async function acceptProjectInvite(userId: string, input: AcceptProjectIn
       update: {},
       create: {
         projectId: invite.projectId,
-        role: "viewer",
+        role: invite.role,
         userId
       }
     }),
