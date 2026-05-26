@@ -616,6 +616,15 @@ export async function getProjectIdForApiKey(apiKey: string): Promise<string | nu
   return project.id;
 }
 
+export async function getAccessibleProjectIds(userId: string): Promise<string[]> {
+  const projects = await prisma.project.findMany({
+    where: getAccessibleProjectWhere(userId),
+    select: { id: true }
+  });
+
+  return projects.map((project) => project.id);
+}
+
 export async function getProjectSdkConfig(apiKey: string | undefined) {
   if (!apiKey) {
     throw new ApiError(401, "Invalid API key.");

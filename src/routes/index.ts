@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { eventsRouter } from "../modules/events/events.route.js";
 import { healthRouter } from "../modules/health/health.route.js";
 import { ingestRouter } from "../modules/ingest/ingest.route.js";
 import { logRouter } from "../modules/log/log.route.js";
@@ -9,6 +10,7 @@ import { settingsRouter } from "../modules/settings/settings.route.js";
 export const routes = Router();
 
 routes.use("/health", healthRouter);
+routes.use("/events", eventsRouter);
 routes.use("/ingest", ingestRouter);
 routes.use("/logs", logRouter);
 routes.use("/projects", projectRouter);

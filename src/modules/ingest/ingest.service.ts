@@ -4,6 +4,7 @@ import { renderOneTimeAlertEmail } from "../../emails/render-one-time-alert-emai
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from "../../utils/email.js";
 import { getAlertRecipients } from "../alerts/alert-recipients.js";
+import { publishDashboardEvent } from "../events/event-bus.js";
 import { getProjectIdForApiKey } from "../project/project.service.js";
 import { IngestInput } from "./ingest.validation.js";
 
@@ -29,6 +30,12 @@ export async function ingestLogs(apiKey: string | undefined, input: IngestInput)
       responseBody: toPrismaJson(log.responseBody),
       createdAt: new Date(log.timestamp)
     }))
+  });
+
+  publishDashboardEvent("request-log.created", {
+    accepted: input.logs.length,
+    latestCreatedAt: getLatestTimestamp(input).toISOString(),
+    projectId
   });
 
   void sendLatencyAlertEmail(projectId, input).catch((error) => {
@@ -225,4 +232,12 @@ function toPrismaJson(value: unknown) {
   }
 
   return value as Prisma.InputJsonValue;
+}
+
+function getLatestTimestamp(input: IngestInput) {
+  return input.logs.reduce((latest, log) => {
+    const timestamp = new Date(log.timestamp);
+
+    return timestamp > latest ? timestamp : latest;
+  }, new Date(0));
 }
